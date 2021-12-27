@@ -95,13 +95,52 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         min_contribution = min(max_contribution, continue_cost + max(continue_cost, BIG_BLIND))
         return (self.pips[active] + min_contribution, self.pips[active] + max_contribution)
 
+    def swap(self, player):
+        '''
+        Swaps players cards with a card from the deck.
+        '''
+
+        if random.random() < 0.5:
+            random_card = random.choice(self.deck.cards)
+            self.deck.cards.remove(random_card)
+            #add the players card to the deck
+            self.deck.cards.append(self.hands[][0])
+            self.hands[player] = (random_card, self.hands[player][1])
+        else:
+            random_card = random.choice(self.deck.cards)
+            self.deck.cards.remove(random_card)
+            #add the players card to the deck
+            self.deck.cards.append(self.hands[][1])
+            self.hands[player] = (self.hands[player][0], random_card)
+
+
     def proceed_street(self):
         '''
         Resets the players' pips and advances the game tree to the next round of betting.
         '''
+
         if self.street == 5:
             return self.showdown()
-        new_street = 3 if self.street == 0 else self.street + 1
+        #shows the cards to the player and the opponent
+        
+        #flop
+        if self.street == 0:
+            new_street = 3
+            postflop_board = self.deck.peek(3)
+
+        if new_street == 3:
+            if random.random() < 0.1:
+                swap(self, 0)
+            if random.random() < 0.1:
+                swap(self, 1)
+        if new_street == 4:
+            #p1
+            if random.random() < 0.05
+                swap(self, 0)
+            if random.random() < 0.05:
+                swap(self, 1)
+
+        new_street = 3 if self.street == 4 else self.street + 1
         return RoundState(1, new_street, [0, 0], self.stacks, self.hands, self.deck, self)
 
     def proceed(self, action):
@@ -262,7 +301,6 @@ class Player():
         '''
         legal_actions = round_state.legal_actions() if isinstance(round_state, RoundState) else {CheckAction}
         if self.socketfile is not None and self.game_clock > 0.:
-            clause = ''
             try:
                 player_message[0] = 'T{:.3f}'.format(self.game_clock)
                 message = ' '.join(player_message) + '\n'
@@ -297,7 +335,7 @@ class Player():
                 print(error_message)
                 self.game_clock = 0.
             except (IndexError, KeyError, ValueError):
-                game_log.append(self.name + ' response misformatted: ' + str(clause))
+                game_log.append(self.name + ' response misformatted')
         return CheckAction() if CheckAction in legal_actions else FoldAction()
 
 
