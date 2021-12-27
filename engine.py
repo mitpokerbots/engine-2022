@@ -346,6 +346,7 @@ class Player():
                 print(error_message)
                 self.game_clock = 0.
             except (IndexError, KeyError, ValueError):
+                #fix issue
                 game_log.append(self.name + ' response misformatted')
         return CheckAction() if CheckAction in legal_actions else FoldAction()
 
