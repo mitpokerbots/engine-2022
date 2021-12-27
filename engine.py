@@ -117,6 +117,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             #add the players card to the deck
             self.deck[1].cards.append(self.hands[player][1])
             self.hands[player] = [self.hands[player][0], random_card]
+            
     def proceed_street(self):
         '''
         Resets the players' pips and advances the game tree to the next round of betting.
