@@ -3,10 +3,10 @@ Encapsulates game and round state information for the player.
 '''
 from collections import namedtuple
 from .actions import FoldAction, CallAction, CheckAction, RaiseAction
+import random 
 
 GameState = namedtuple('GameState', ['bankroll', 'game_clock', 'round_num'])
 TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state'])
-
 
 FLOP_PERCENT = 0.1
 TURN_PERCENT = 0.05
@@ -14,6 +14,7 @@ NUM_ROUNDS = 1000
 STARTING_STACK = 400
 BIG_BLIND = 2
 SMALL_BLIND = 1
+
 
 
 class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
@@ -52,8 +53,8 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         min_contribution = min(max_contribution, continue_cost + max(continue_cost, BIG_BLIND))
         return (self.pips[active] + min_contribution, self.pips[active] + max_contribution)
 
-        def swap(self, player):
-            '''
+    def swap(self, player):
+        '''
         Swaps players cards with a card from the deck.
         '''
 
@@ -80,8 +81,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
 
         #flop
         if self.street == 0:
-            table = self.deck[1].deal(3)
-            cards = (table, self.deck[1])
+            print(self.hands)
             if random.random() < FLOP_PERCENT:
                 self.swap(0)
             if random.random() < FLOP_PERCENT:
@@ -106,6 +106,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         table = self.deck[0] + self.deck[1].deal(1)
         cards = (table, self.deck[1])
         return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
+
 
     def proceed(self, action):
         '''
