@@ -1,9 +1,7 @@
-# MIT Pokerbots Engine
-MIT Pokerbots engine and skeleton bots in Python, Java, and C++.
+# MIT Pokerbots 2022 Engine
+MIT Pokerbots engine for 2022 and skeleton bots in Python, Java, and C++.
 
-This is the reference implementation of the engine for playing vanilla Texas hold'em. **Do not update** this repo to implement the yearly game variant! Instead, create a new repo within this organization called mitpokerbots/engine-yyyy.
-
-Improvements which help the engine generalize to new variants, run faster, handle bot subprocesses more safely, etc. should be incorporated into this repo.
+The command to run the engine is ```python3 engine.py```. The engine is configured via ```config.py```. If on Windows, the engine must be run using the Windows Subsystem for Linux (WSL).
 
 ## Dependencies
  - python>=3.5
