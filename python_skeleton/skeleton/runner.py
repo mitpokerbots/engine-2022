@@ -5,7 +5,7 @@ import argparse
 import socket
 from .actions import FoldAction, CallAction, CheckAction, RaiseAction
 from .states import GameState, TerminalState, RoundState
-from .states import STARTING_STACK, BIG_BLIND, SMALL_BLIND
+from .states import STARTING_STACK, BIG_BLIND, SMALL_BLIND, FLOP_PERCENT, TURN_PERCENT
 from .bot import Bot
 
 

@@ -52,21 +52,20 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 # Action history is sent once, including the player's actions
 
 
-class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state', 'community'])):
+class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
     '''
     Encodes the game tree for one round of poker.
 
     button: Determines the player (is binary as we only want to look at player 0 or player 1)
     street: Determines the 
-
     '''
 
     def showdown(self):
         '''
         Compares the players' hands and computes payoffs.
         '''
-        score0 = eval7.evaluate(self.community + [self.hands[0][0]] + [self.hands[0][1]] + self.deck.peek(1))
-        score1 = eval7.evaluate(self.community + [self.hands[1][0]] + [self.hands[1][1]] + self.deck.peek(1))
+        score0 = eval7.evaluate(self.deck[0] + self.hands[0])
+        score1 = eval7.evaluate(self.deck[0] + self.hands[1])
         if score0 > score1:
             delta = STARTING_STACK - self.stacks[1]
         elif score0 < score1:
@@ -106,17 +105,18 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
 
         if random.random() < 0.5:
-            random_card = random.choice(self.deck.cards)
-            self.deck.cards.remove(random_card)
+            random_card = random.choice(self.deck[1].cards)
+            self.deck[1].cards.remove(random_card)
             #add the players card to the deck
-            self.deck.cards.append(self.hands[player][0])
-            self.hands[player] = (random_card, self.hands[player][1])
+            self.deck[1].cards.append(self.hands[player][0])
+            self.hands[player] = [random_card, self.hands[player][1]]
         else:
-            random_card = random.choice(self.deck.cards)
-            self.deck.cards.remove(random_card)
+            
+            random_card = random.choice(self.deck[1].cards)
+            self.deck[1].cards.remove(random_card)
             #add the players card to the deck
-            self.deck.cards.append(self.hands[player][1])
-            self.hands[player] = (self.hands[player][0], random_card)
+            self.deck[1].cards.append(self.hands[player][1])
+            self.hands[player] = [self.hands[player][0], random_card]
     def proceed_street(self):
         '''
         Resets the players' pips and advances the game tree to the next round of betting.
@@ -127,61 +127,32 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
 
         #flop
         if self.street == 0:
-            table = [* self.community, * self.deck.peek(3)]
-
-            if random.random() < 0.1:
+            table = self.deck[1].deal(3)
+            cards = (table, self.deck[1])
+            if random.random() < FLOP_PERCENT:
                 self.swap(0)
-            if random.random() < 0.1:
+            if random.random() < FLOP_PERCENT:
                 self.swap(1)
-
             new_street = 3
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, self.deck, self, table)
+            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
 
         #turn
         if self.street == 3:
-            table = [* self.community, * self.deck.peek(1)]
-            #p1
-            if random.random() < 0.05:
+            table = self.deck[0] + self.deck[1].deal(1)
+            cards = (table, self.deck[1])
+            if random.random() < TURN_PERCENT:
                 self.swap(0)
-            if random.random() < 0.05:
+            if random.random() < TURN_PERCENT:
                 self.swap(1)
             new_street = self.street+1
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, self.deck, self, self.community)
+            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
 
+        #river
         new_street = 3 if self.street == 0 else self.street + 1
-        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, self.deck, self, self.community)
-
-    """
-    def proceed_street(self):
-        '''
-        Resets the players' pips and advances the game tree to the next round of betting.
-        '''
-
-        if self.street == 5:
-            return self.showdown()
-        #shows the cards to the player and the opponent
-        
-        #flop
-        if self.street == 0:
-            new_street = 3
-            postflop_board = self.deck.peek(3)
-        
-        if self.street == 3:
-            if random.random() < 0.1:
-                self.swap(0)
-            if random.random() < 0.1:
-                self.swap(1)
-        if self.street == 4:
-            #p1
-            if random.random() < 0.05:
-                self.swap(0)
-            if random.random() < 0.05:
-                self.swap(1)
-        
-        new_street = 3 if self.street == 4 else self.street + 1
-        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, self.deck, self)
-    """
-
+        #update cards 
+        table = self.deck[0] + self.deck[1].deal(1)
+        cards = (table, self.deck[1])
+        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
 
     def proceed(self, action):
         '''
@@ -193,20 +164,20 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             return TerminalState([delta, -delta], self)
         if isinstance(action, CallAction):
             if self.button == 0:  # sb calls bb
-                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self, self.community)
+                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self)
             # both players acted
             new_pips = list(self.pips)
             new_stacks = list(self.stacks)
             contribution = new_pips[1-active] - new_pips[active]
             new_stacks[active] -= contribution
             new_pips[active] += contribution
-            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self, self.community)
+            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self)
             return state.proceed_street()
         if isinstance(action, CheckAction):
             if (self.street == 0 and self.button > 0) or self.button > 1:  # both players acted
                 return self.proceed_street()
             # let opponent act
-            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self, self.community)
+            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self)
         # isinstance(action, RaiseAction)
         new_pips = list(self.pips)
         new_stacks = list(self.stacks)
@@ -247,6 +218,7 @@ class Player():
         except FileNotFoundError:
             print(self.name, 'commands.json not found - check PLAYER_PATH')
         except json.decoder.JSONDecodeError:
+            print(self.path)
             print(self.name, 'commands.json misformatted')
         if self.commands is not None and len(self.commands['build']) > 0:
             try:
@@ -342,7 +314,6 @@ class Player():
         legal_actions = round_state.legal_actions() if isinstance(round_state, RoundState) else {CheckAction}
         if self.socketfile is not None and self.game_clock > 0.:
             try:
-
                 player_message[0] = 'T{:.3f}'.format(self.game_clock)
                 message = ' '.join(player_message) + '\n'
                 del player_message[1:]  # do not send redundant action history
@@ -368,7 +339,6 @@ class Player():
             except socket.timeout:
                 error_message = self.name + ' ran out of time'
                 game_log.append(error_message)
-                print(error_message)
                 self.game_clock = 0.
             except OSError:
                 error_message = self.name + ' disconnected'
@@ -401,7 +371,10 @@ class Game():
             self.player_messages[0] = ['T0.', 'P0', 'H' + CCARDS(round_state.hands[0])]
             self.player_messages[1] = ['T0.', 'P1', 'H' + CCARDS(round_state.hands[1])]
         elif round_state.street > 0 and round_state.button == 1:
-            board = round_state.deck.peek(round_state.street)
+            board = round_state.deck[1].peek(round_state.street)
+            #report both player's current cards
+            self.log.append('{} dealt {}'.format(players[0].name, PCARDS(round_state.hands[0])))
+            self.log.append('{} dealt {}'.format(players[1].name, PCARDS(round_state.hands[1])))
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
                             PVALUE(players[0].name, STARTING_STACK-round_state.stacks[0]) +
                             PVALUE(players[1].name, STARTING_STACK-round_state.stacks[1]))
@@ -448,12 +421,16 @@ class Game():
         '''
         Runs one round of poker.
         '''
-        deck = eval7.Deck()
-        deck.shuffle()
-        hands = [deck.deal(2), deck.deal(2)]
+        starting_deck = eval7.Deck()
+        starting_deck.shuffle()
+        #(community cards, deck that are currently available)
+        non_tuple = [[], starting_deck]
+        deck = tuple(non_tuple)
+
+        hands = [deck[1].deal(2), deck[1].deal(2)]
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
-        round_state = RoundState(0, 0, pips, stacks, hands, deck, None, [])
+        round_state = RoundState(0, 0, pips, stacks, hands, deck, None)
         while not isinstance(round_state, TerminalState):
             self.log_round_state(players, round_state)
             active = round_state.button % 2
