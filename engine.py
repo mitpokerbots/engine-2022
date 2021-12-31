@@ -53,6 +53,17 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 # Action history is sent once, including the player's actions
 
 
+def swap(player_index, hands, deck):
+    '''
+    Swaps player's card with a card from the deck.
+    '''
+    card_index = 0 if random.random() < 0.5 else 1
+    random_card = deck.deal(1)
+    deck.cards.append(hands[player_index][card_index])
+    hands[player_index][card_index] = random_card
+    return hands, deck
+
+
 class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
     '''
     Encodes the game tree for one round of poker.
@@ -96,17 +107,6 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         max_contribution = min(self.stacks[active], self.stacks[1-active] + continue_cost)
         min_contribution = min(max_contribution, continue_cost + max(continue_cost, BIG_BLIND))
         return (self.pips[active] + min_contribution, self.pips[active] + max_contribution)
-
-    def swap(self, player):
-        '''
-        Swaps players cards with a card from the deck.
-        '''
-        card_index = 0 if random.random() < 0.5 else 1
-        random_card = random.choice(self.deck[1].cards)
-        self.deck[1].cards.remove(random_card)
-        #add the players card to the deck
-        self.deck[1].cards.append(self.hands[player][card_index])
-        self.hands[player][card_index] = random_card
             
     def proceed_street(self):
         '''
@@ -116,26 +116,23 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             return self.showdown()
         if self.street == 0:
             table = self.deck[1].deal(3)
-            cards = (table, self.deck[1])
             if random.random() < FLOP_PERCENT:
-                self.swap(0)
+                new_hands, new_deck = swap(0, self.hands, self.deck[1])
             if random.random() < FLOP_PERCENT:
-                self.swap(1)
+                new_hands, new_deck = swap(1, self.hands, self.deck[1])
             new_street = 3
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
+            return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (table, new_deck), self)
         if self.street == 3:
             table = self.deck[0] + self.deck[1].deal(1)
-            cards = (table, self.deck[1])
             if random.random() < TURN_PERCENT:
-                self.swap(0)
+                new_hands, new_deck = swap(0, self.hands, self.deck[1])
             if random.random() < TURN_PERCENT:
-                self.swap(1)
+                new_hands, new_deck = swap(1, self.hands, self.deck[1])
             new_street = self.street+1
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
-        new_street = 3 if self.street == 0 else self.street + 1
+            return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (table, new_deck), self)
         table = self.deck[0] + self.deck[1].deal(1)
-        cards = (table, self.deck[1])
-        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
+        new_street = 3 if self.street == 0 else self.street + 1
+        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, (table, self.deck[1]), self)
 
     def proceed(self, action):
         '''
