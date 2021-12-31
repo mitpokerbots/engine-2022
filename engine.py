@@ -114,25 +114,16 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
         if self.street == 5:
             return self.showdown()
-        if self.street == 0:
-            table = self.deck[1].deal(3)
-            if random.random() < FLOP_PERCENT:
-                new_hands, new_deck = swap(0, self.hands, self.deck[1])
-            if random.random() < FLOP_PERCENT:
-                new_hands, new_deck = swap(1, self.hands, self.deck[1])
-            new_street = 3
-            return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (table, new_deck), self)
-        if self.street == 3:
-            table = self.deck[0] + self.deck[1].deal(1)
-            if random.random() < TURN_PERCENT:
-                new_hands, new_deck = swap(0, self.hands, self.deck[1])
-            if random.random() < TURN_PERCENT:
-                new_hands, new_deck = swap(1, self.hands, self.deck[1])
-            new_street = self.street+1
-            return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (table, new_deck), self)
-        table = self.deck[0] + self.deck[1].deal(1)
         new_street = 3 if self.street == 0 else self.street + 1
-        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, (table, self.deck[1]), self)
+        new_hands = self.hands.copy()
+        new_deck = eval7.Deck()
+        new_deck.cards = self.deck[1].cards.copy()
+        if self.street == 0 or self.street == 3:
+            for i in range(len(self.hands)):
+                if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
+                    new_hands, new_deck = swap(i, new_hands, new_deck)
+        board = self.deck[0] + new_deck.deal(num_cards = 3 if self.street == 0 else 1)
+        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self)
 
     def proceed(self, action):
         '''
