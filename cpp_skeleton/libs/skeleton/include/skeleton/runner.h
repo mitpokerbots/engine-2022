@@ -71,7 +71,6 @@ public:
           case 'H': {
             std::vector<std::string> cards;
             boost::split(cards, leftover, boost::is_any_of(","));
-
             std::array<std::array<std::string, 2>, 2> hands;
             hands[active][0] = cards[0];
             hands[active][1] = cards[1];
@@ -88,6 +87,17 @@ public:
                   std::static_pointer_cast<const RoundState>(roundState), active);
               roundFlag = false;
             }
+            break;
+          }
+          case 'U': {
+            std::vector<std::string> cards;
+            boost::split(cards, leftover, boost::is_any_of(","));
+            std::array<std::array<std::string, 2>, 2> hands;
+            hands[active][0] = cards[0];
+            hands[active][1] = cards[1];
+            auto maker = std::static_pointer_cast<const RoundState>(roundState);
+            roundState = std::make_shared<RoundState>(maker->button, maker->street, maker->pips, maker->stacks,
+                                                      hands, maker->deck, maker->previousState);
             break;
           }
           case 'F': {
