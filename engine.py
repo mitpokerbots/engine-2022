@@ -53,12 +53,12 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 # Action history is sent once, including the player's actions
 
 
-def swap(player_index, hands, deck):
+def swap(player_card_index, hands, deck):
     '''
     Swaps player's card with a card from the deck.
     '''
-    card_index = player_index % len(hands)
-    player_index = player_index // len(hands)
+    card_index = player_card_index % len(hands)
+    player_index = player_card_index // len(hands)
     random_card = deck.deal(1)
     deck.cards.append(hands[player_index][card_index])
     hands[player_index][card_index] = random_card[0]
