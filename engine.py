@@ -101,18 +101,12 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
         Swaps players cards with a card from the deck.
         '''
-        if random.random() < 0.5:
-            random_card = random.choice(self.deck[1].cards)
-            self.deck[1].cards.remove(random_card)
-            #add the players card to the deck
-            self.deck[1].cards.append(self.hands[player][0])
-            self.hands[player] = [random_card, self.hands[player][1]]
-        else: 
-            random_card = random.choice(self.deck[1].cards)
-            self.deck[1].cards.remove(random_card)
-            #add the players card to the deck
-            self.deck[1].cards.append(self.hands[player][1])
-            self.hands[player] = [self.hands[player][0], random_card]
+        card_index = 0 if random.random() < 0.5 else 1
+        random_card = random.choice(self.deck[1].cards)
+        self.deck[1].cards.remove(random_card)
+        #add the players card to the deck
+        self.deck[1].cards.append(self.hands[player][card_index])
+        self.hands[player][card_index] = random_card
             
     def proceed_street(self):
         '''
