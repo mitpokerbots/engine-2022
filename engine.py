@@ -120,7 +120,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         new_deck = eval7.Deck()
         new_deck.cards = self.deck[1].cards.copy()
         if self.street == 0 or self.street == 3:
-            for i in range(sum([len(cards) for cards in self.hands])):
+            for i in range(sum([len(hand) for hand in self.hands])):
                 if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
                     new_hands, new_deck = swap(i, new_hands, new_deck)
         board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
