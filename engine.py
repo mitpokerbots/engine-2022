@@ -55,9 +55,6 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
     '''
     Encodes the game tree for one round of poker.
-
-    button: Determines the player (is binary as we only want to look at player 0 or player 1)
-    street: Determines the 
     '''
 
     def showdown(self):
@@ -103,7 +100,6 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
         Swaps players cards with a card from the deck.
         '''
-
         if random.random() < 0.5:
             random_card = random.choice(self.deck[1].cards)
             self.deck[1].cards.remove(random_card)
@@ -121,14 +117,10 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
         Resets the players' pips and advances the game tree to the next round of betting.
         '''
-        #river
         if self.street == 5:
             return self.showdown()
-
-        #flop
         if self.street == 0:
             table = self.deck[1].deal(3)
-            
             cards = (table, self.deck[1])
             if random.random() < FLOP_PERCENT:
                 self.swap(0)
@@ -136,10 +128,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
                 self.swap(1)
             new_street = 3
             return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
-
-        #turn
         if self.street == 3:
-            
             table = self.deck[0] + self.deck[1].deal(1)
             cards = (table, self.deck[1])
             if random.random() < TURN_PERCENT:
@@ -148,10 +137,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
                 self.swap(1)
             new_street = self.street+1
             return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
-
-        #river
         new_street = 3 if self.street == 0 else self.street + 1
-        #update cards 
         table = self.deck[0] + self.deck[1].deal(1)
         cards = (table, self.deck[1])
         return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
@@ -367,7 +353,6 @@ class Game():
         '''
         Incorporates RoundState information into the game log and player messages.
         '''
-
         if round_state.street == 0 and round_state.button == 0:
             self.log.append('{} posts the blind of {}'.format(players[0].name, SMALL_BLIND))
             self.log.append('{} posts the blind of {}'.format(players[1].name, BIG_BLIND))
@@ -376,10 +361,7 @@ class Game():
             self.player_messages[0] = ['T0.', 'P0', 'H' + CCARDS(round_state.hands[0])]
             self.player_messages[1] = ['T0.', 'P1', 'H' + CCARDS(round_state.hands[1])]
         elif round_state.street > 0 and round_state.button == 1:
-            #issue fix
-            
             board = round_state.deck[0]
-            #report both player's current cards
             self.log.append('{} dealt {}'.format(players[0].name, PCARDS(round_state.hands[0])))
             self.log.append('{} dealt {}'.format(players[1].name, PCARDS(round_state.hands[1])))
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
@@ -430,10 +412,8 @@ class Game():
         '''
         starting_deck = eval7.Deck()
         starting_deck.shuffle()
-        #(community cards, deck that are currently available)
         non_tuple = [[], starting_deck]
         deck = tuple(non_tuple)
-
         hands = [deck[1].deal(2), deck[1].deal(2)]
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
