@@ -395,10 +395,9 @@ class Game():
         '''
         Runs one round of poker.
         '''
-        starting_deck = eval7.Deck()
-        starting_deck.shuffle()
-        non_tuple = [[], starting_deck]
-        deck = tuple(non_tuple)
+        deck = eval7.Deck()
+        deck.shuffle()
+        deck = ([], deck)
         hands = [deck[1].deal(2), deck[1].deal(2)]
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
