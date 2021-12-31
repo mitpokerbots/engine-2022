@@ -60,7 +60,7 @@ def swap(player_index, hands, deck):
     card_index = 0 if random.random() < 0.5 else 1
     random_card = deck.deal(1)
     deck.cards.append(hands[player_index][card_index])
-    hands[player_index][card_index] = random_card
+    hands[player_index][card_index] = random_card[0]
     return hands, deck
 
 
@@ -122,7 +122,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             for i in range(len(self.hands)):
                 if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
                     new_hands, new_deck = swap(i, new_hands, new_deck)
-        board = self.deck[0] + new_deck.deal(num_cards = 3 if self.street == 0 else 1)
+        board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
         return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self)
 
     def proceed(self, action):
