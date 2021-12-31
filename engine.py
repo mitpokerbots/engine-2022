@@ -342,6 +342,7 @@ class Player():
             except socket.timeout:
                 error_message = self.name + ' ran out of time'
                 game_log.append(error_message)
+                print(error_message)
                 self.game_clock = 0.
             except OSError:
                 error_message = self.name + ' disconnected'
@@ -349,8 +350,6 @@ class Player():
                 print(error_message)
                 self.game_clock = 0.
             except (IndexError, KeyError, ValueError):
-                #fix issue
-                game_log.append(self.name + ' response misformatted')
                 game_log.append(self.name + ' response misformatted: ' + str(clause))
         return CheckAction() if CheckAction in legal_actions else FoldAction()
 
