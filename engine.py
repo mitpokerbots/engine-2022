@@ -346,16 +346,17 @@ class Game():
             self.player_messages[1] = ['T0.', 'P1', 'H' + CCARDS(round_state.hands[1])]
         elif round_state.street > 0 and round_state.button == 1:
             board = round_state.deck[0]
-            self.log.append("{}'s hand: {}".format(players[0].name, PCARDS(round_state.hands[0])))
-            self.log.append("{}'s hand: {}".format(players[1].name, PCARDS(round_state.hands[1])))
-            self.player_messages[0].append('U' + CCARDS(round_state.hands[0]))
-            self.player_messages[1].append('U' + CCARDS(round_state.hands[1]))
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
                             PVALUE(players[0].name, STARTING_STACK-round_state.stacks[0]) +
                             PVALUE(players[1].name, STARTING_STACK-round_state.stacks[1]))
             compressed_board = 'B' + CCARDS(board)
             self.player_messages[0].append(compressed_board)
             self.player_messages[1].append(compressed_board)
+            if round_state.street < 5:
+                self.log.append("{}'s hand: {}".format(players[0].name, PCARDS(round_state.hands[0])))
+                self.log.append("{}'s hand: {}".format(players[1].name, PCARDS(round_state.hands[1])))
+                self.player_messages[0].append('U' + CCARDS(round_state.hands[0]))
+                self.player_messages[1].append('U' + CCARDS(round_state.hands[1]))
 
     def log_action(self, name, action, bet_override):
         '''
