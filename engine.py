@@ -110,8 +110,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             #add the players card to the deck
             self.deck[1].cards.append(self.hands[player][0])
             self.hands[player] = [random_card, self.hands[player][1]]
-        else:
-            
+        else: 
             random_card = random.choice(self.deck[1].cards)
             self.deck[1].cards.remove(random_card)
             #add the players card to the deck
@@ -129,6 +128,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         #flop
         if self.street == 0:
             table = self.deck[1].deal(3)
+            
             cards = (table, self.deck[1])
             if random.random() < FLOP_PERCENT:
                 self.swap(0)
@@ -139,6 +139,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
 
         #turn
         if self.street == 3:
+            
             table = self.deck[0] + self.deck[1].deal(1)
             cards = (table, self.deck[1])
             if random.random() < TURN_PERCENT:
@@ -367,6 +368,7 @@ class Game():
         '''
         Incorporates RoundState information into the game log and player messages.
         '''
+
         if round_state.street == 0 and round_state.button == 0:
             self.log.append('{} posts the blind of {}'.format(players[0].name, SMALL_BLIND))
             self.log.append('{} posts the blind of {}'.format(players[1].name, BIG_BLIND))
@@ -375,7 +377,9 @@ class Game():
             self.player_messages[0] = ['T0.', 'P0', 'H' + CCARDS(round_state.hands[0])]
             self.player_messages[1] = ['T0.', 'P1', 'H' + CCARDS(round_state.hands[1])]
         elif round_state.street > 0 and round_state.button == 1:
-            board = round_state.deck[1].peek(round_state.street)
+            #issue fix
+            
+            board = round_state.deck[0]
             #report both player's current cards
             self.log.append('{} dealt {}'.format(players[0].name, PCARDS(round_state.hands[0])))
             self.log.append('{} dealt {}'.format(players[1].name, PCARDS(round_state.hands[1])))
