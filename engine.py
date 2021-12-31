@@ -57,7 +57,8 @@ def swap(player_index, hands, deck):
     '''
     Swaps player's card with a card from the deck.
     '''
-    card_index = 0 if random.random() < 0.5 else 1
+    card_index = player_index % len(hands)
+    player_index = player_index // len(hands)
     random_card = deck.deal(1)
     deck.cards.append(hands[player_index][card_index])
     hands[player_index][card_index] = random_card[0]
@@ -119,7 +120,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         new_deck = eval7.Deck()
         new_deck.cards = self.deck[1].cards.copy()
         if self.street == 0 or self.street == 3:
-            for i in range(len(self.hands)):
+            for i in range(sum([len(cards) for cards in self.hands])):
                 if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
                     new_hands, new_deck = swap(i, new_hands, new_deck)
         board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
