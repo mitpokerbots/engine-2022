@@ -53,6 +53,17 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 # Action history is sent once, including the player's actions
 
 
+def swap(player_index, hands, deck):
+    '''
+    Swaps player's card with a card from the deck.
+    '''
+    card_index = 0 if random.random() < 0.5 else 1
+    random_card = deck.deal(1)
+    deck.cards.append(hands[player_index][card_index])
+    hands[player_index][card_index] = random_card[0]
+    return hands, deck
+
+
 class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
     '''
     Encodes the game tree for one round of poker.
@@ -96,23 +107,6 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         max_contribution = min(self.stacks[active], self.stacks[1-active] + continue_cost)
         min_contribution = min(max_contribution, continue_cost + max(continue_cost, BIG_BLIND))
         return (self.pips[active] + min_contribution, self.pips[active] + max_contribution)
-
-    def swap(self, player):
-        '''
-        Swaps players cards with a card from the deck.
-        '''
-        if random.random() < 0.5:
-            random_card = random.choice(self.deck[1].cards)
-            self.deck[1].cards.remove(random_card)
-            #add the players card to the deck
-            self.deck[1].cards.append(self.hands[player][0])
-            self.hands[player] = [random_card, self.hands[player][1]]
-        else: 
-            random_card = random.choice(self.deck[1].cards)
-            self.deck[1].cards.remove(random_card)
-            #add the players card to the deck
-            self.deck[1].cards.append(self.hands[player][1])
-            self.hands[player] = [self.hands[player][0], random_card]
             
     def proceed_street(self):
         '''
@@ -120,28 +114,16 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         '''
         if self.street == 5:
             return self.showdown()
-        if self.street == 0:
-            table = self.deck[1].deal(3)
-            cards = (table, self.deck[1])
-            if random.random() < FLOP_PERCENT:
-                self.swap(0)
-            if random.random() < FLOP_PERCENT:
-                self.swap(1)
-            new_street = 3
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
-        if self.street == 3:
-            table = self.deck[0] + self.deck[1].deal(1)
-            cards = (table, self.deck[1])
-            if random.random() < TURN_PERCENT:
-                self.swap(0)
-            if random.random() < TURN_PERCENT:
-                self.swap(1)
-            new_street = self.street+1
-            return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
         new_street = 3 if self.street == 0 else self.street + 1
-        table = self.deck[0] + self.deck[1].deal(1)
-        cards = (table, self.deck[1])
-        return RoundState(1, new_street, [0, 0], self.stacks, self.hands, cards, self)
+        new_hands = self.hands.copy()
+        new_deck = eval7.Deck()
+        new_deck.cards = self.deck[1].cards.copy()
+        if self.street == 0 or self.street == 3:
+            for i in range(len(self.hands)):
+                if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
+                    new_hands, new_deck = swap(i, new_hands, new_deck)
+        board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
+        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self)
 
     def proceed(self, action):
         '''
@@ -414,10 +396,9 @@ class Game():
         '''
         Runs one round of poker.
         '''
-        starting_deck = eval7.Deck()
-        starting_deck.shuffle()
-        non_tuple = [[], starting_deck]
-        deck = tuple(non_tuple)
+        deck = eval7.Deck()
+        deck.shuffle()
+        deck = ([], deck)
         hands = [deck[1].deal(2), deck[1].deal(2)]
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
