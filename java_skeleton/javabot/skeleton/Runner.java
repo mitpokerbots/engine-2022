@@ -101,6 +101,21 @@ public class Runner {
                         }
                         break;
                     }
+                    case 'U': {
+                        String[] cards = leftover.split(",");
+                        List<List<String>> hands = new ArrayList<List<String>>(
+                            Arrays.asList(
+                                new ArrayList<String>(),
+                                new ArrayList<String>()
+                            )
+                        );
+                        hands.set(active, Arrays.asList(cards[0], cards[1]));
+                        hands.set(1 - active, Arrays.asList("", ""));
+                        RoundState maker = (RoundState)roundState;
+                        roundState = new RoundState(maker.button, maker.street, maker.pips, maker.stacks,
+                                                    hands, maker.deck, maker.previousState);
+                        break;
+                    }
                     case 'F': {
                         roundState = ((RoundState)roundState).proceed(new Action(ActionType.FOLD_ACTION_TYPE));
                         break;
