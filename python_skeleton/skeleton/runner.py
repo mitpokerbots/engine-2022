@@ -66,6 +66,11 @@ class Runner():
                     if round_flag:
                         self.pokerbot.handle_new_round(game_state, round_state, active)
                         round_flag = False
+                elif clause[0] == 'U':
+                    hands = [[], []]
+                    hands[active] = clause[1:].split(',')
+                    round_state = RoundState(round_state.button, round_state.street, round_state.pips, round_state.stacks,
+                                             hands, round_state.deck, round_state.previous_state)
                 elif clause[0] == 'F':
                     round_state = round_state.proceed(FoldAction())
                 elif clause[0] == 'C':

@@ -36,6 +36,7 @@ STATUS = lambda players: ''.join([PVALUE(p.name, p.bankroll) for p in players])
 # T#.### the player's game clock
 # P# the player's index
 # H**,** the player's hand in common format
+# U**,** the player's updated hand in common format
 # F a fold action in the round history
 # C a call action in the round history
 # K a check action in the round history
@@ -362,8 +363,10 @@ class Game():
             self.player_messages[1] = ['T0.', 'P1', 'H' + CCARDS(round_state.hands[1])]
         elif round_state.street > 0 and round_state.button == 1:
             board = round_state.deck[0]
-            self.log.append('{} dealt {}'.format(players[0].name, PCARDS(round_state.hands[0])))
-            self.log.append('{} dealt {}'.format(players[1].name, PCARDS(round_state.hands[1])))
+            self.log.append("{}'s hand: {}".format(players[0].name, PCARDS(round_state.hands[0])))
+            self.log.append("{}'s hand: {}".format(players[1].name, PCARDS(round_state.hands[1])))
+            self.player_messages[0].append('U' + CCARDS(round_state.hands[0]))
+            self.player_messages[1].append('U' + CCARDS(round_state.hands[1]))
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
                             PVALUE(players[0].name, STARTING_STACK-round_state.stacks[0]) +
                             PVALUE(players[1].name, STARTING_STACK-round_state.stacks[1]))
