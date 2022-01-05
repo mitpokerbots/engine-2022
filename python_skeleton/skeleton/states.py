@@ -10,7 +10,7 @@ TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state'])
 FLOP_PERCENT = 0.1
 TURN_PERCENT = 0.05
 NUM_ROUNDS = 1000
-STARTING_STACK = 400
+STARTING_STACK = 200
 BIG_BLIND = 2
 SMALL_BLIND = 1
 
