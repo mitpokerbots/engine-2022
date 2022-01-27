@@ -65,7 +65,7 @@ def swap(player_card_index, hands, deck):
     return hands, deck
 
 
-class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state', 'swapped'], defaults=[(False, False)])):
+class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state', 'swapped'], defaults=[[False, False]])):
     '''
     Encodes the game tree for one round of poker.
     '''
