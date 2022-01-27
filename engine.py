@@ -334,6 +334,12 @@ class Game():
     def __init__(self):
         self.log = ['6.176 MIT Pokerbots - ' + PLAYER_1_NAME + ' vs ' + PLAYER_2_NAME]
         self.player_messages = [[], []]
+        self.preflop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.flop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.turn_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_preflop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_flop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_turn_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
 
     def log_round_state(self, players, round_state):
         '''
@@ -351,6 +357,15 @@ class Game():
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
                             PVALUE(players[0].name, STARTING_STACK-round_state.stacks[0]) +
                             PVALUE(players[1].name, STARTING_STACK-round_state.stacks[1]))
+            if round_state.street == 3:
+                self.preflop_bets = {players[0].name: STARTING_STACK-round_state.stacks[0],
+                                     players[1].name: STARTING_STACK-round_state.stacks[1]}
+            elif round_state.street == 4:
+                self.flop_bets = {players[0].name: STARTING_STACK-round_state.stacks[0]-self.preflop_bets[players[0].name],
+                                  players[1].name: STARTING_STACK-round_state.stacks[1]-self.preflop_bets[players[1].name]}
+            else:
+                self.turn_bets = {players[0].name: STARTING_STACK-round_state.stacks[0]-self.flop_bets[players[0].name]-self.preflop_bets[players[0].name],
+                                  players[1].name: STARTING_STACK-round_state.stacks[1]-self.flop_bets[players[1].name]-self.preflop_bets[players[1].name]}
             compressed_board = 'B' + CCARDS(board)
             self.player_messages[0].append(compressed_board)
             self.player_messages[1].append(compressed_board)
@@ -412,6 +427,9 @@ class Game():
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
         round_state = RoundState(0, 0, pips, stacks, hands, deck, None)
+        self.preflop_bets = {players[0].name: 0, players[1].name: 0}
+        self.flop_bets = {players[0].name: 0, players[1].name: 0}
+        self.turn_bets = {players[0].name: 0, players[1].name: 0}
         while not isinstance(round_state, TerminalState):
             self.log_round_state(players, round_state)
             active = round_state.button % 2
@@ -421,6 +439,11 @@ class Game():
             self.log_action(player.name, action, bet_override)
             round_state = round_state.proceed(action)
         self.log_terminal_state(players, round_state)
+        for i in range(len(players)):
+            multiplier = 1 if round_state.deltas[i] > 0 else (0 if round_state.deltas[i] == 0 else -1)
+            self.ev_preflop_bets[players[i].name] += multiplier * self.preflop_bets[players[i].name]
+            self.ev_flop_bets[players[i].name] += multiplier * self.flop_bets[players[i].name]
+            self.ev_turn_bets[players[i].name] += multiplier * self.turn_bets[players[i].name]
         for player, player_message, delta in zip(players, self.player_messages, round_state.deltas):
             player.query(round_state, player_message, self.log)
             player.bankroll += delta
@@ -450,6 +473,9 @@ class Game():
         self.log.append('')
         self.log.append('Final' + STATUS(players))
         for player in players:
+            self.log.append('{} preflop bets EV: {}'.format(player.name, self.ev_preflop_bets[player.name]))
+            self.log.append('{} flop bets EV: {}'.format(player.name, self.ev_flop_bets[player.name]))
+            self.log.append('{} turn bets EV: {}'.format(player.name, self.ev_turn_bets[player.name]))
             player.stop()
         name = GAME_LOG_FILENAME + '.txt'
         print('Writing', name)
