@@ -22,7 +22,7 @@ CallAction = namedtuple('CallAction', [])
 CheckAction = namedtuple('CheckAction', [])
 # we coalesce BetAction and RaiseAction for convenience
 RaiseAction = namedtuple('RaiseAction', ['amount'])
-TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state'])
+TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state', 'swapped'], defaults=[[False, False]])
 
 STREET_NAMES = ['Flop', 'Turn', 'River']
 DECODE = {'F': FoldAction, 'C': CallAction, 'K': CheckAction, 'R': RaiseAction}
@@ -65,7 +65,7 @@ def swap(player_card_index, hands, deck):
     return hands, deck
 
 
-class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
+class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state', 'swapped'], defaults=[[False, False]])):
     '''
     Encodes the game tree for one round of poker.
     '''
@@ -82,7 +82,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             delta = self.stacks[0] - STARTING_STACK
         else:  # split the pot
             delta = (self.stacks[0] - self.stacks[1]) // 2
-        return TerminalState([delta, -delta], self)
+        return TerminalState([delta, -delta], self, self.swapped)
 
     def legal_actions(self):
         '''
@@ -119,12 +119,14 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         new_hands = self.hands.copy()
         new_deck = eval7.Deck()
         new_deck.cards = self.deck[1].cards.copy()
+        new_swapped = self.swapped.copy()
         if self.street == 0 or self.street == 3:
             for i in range(sum([len(hand) for hand in self.hands])):
                 if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
                     new_hands, new_deck = swap(i, new_hands, new_deck)
+                    new_swapped[i // len(new_hands)] = True
         board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
-        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self)
+        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self, new_swapped)
 
     def proceed(self, action):
         '''
@@ -133,30 +135,30 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         active = self.button % 2
         if isinstance(action, FoldAction):
             delta = self.stacks[0] - STARTING_STACK if active == 0 else STARTING_STACK - self.stacks[1]
-            return TerminalState([delta, -delta], self)
+            return TerminalState([delta, -delta], self, self.swapped)
         if isinstance(action, CallAction):
             if self.button == 0:  # sb calls bb
-                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self)
+                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self, self.swapped)
             # both players acted
             new_pips = list(self.pips)
             new_stacks = list(self.stacks)
             contribution = new_pips[1-active] - new_pips[active]
             new_stacks[active] -= contribution
             new_pips[active] += contribution
-            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self)
+            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self, self.swapped)
             return state.proceed_street()
         if isinstance(action, CheckAction):
             if (self.street == 0 and self.button > 0) or self.button > 1:  # both players acted
                 return self.proceed_street()
             # let opponent act
-            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self)
+            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self, self.swapped)
         # isinstance(action, RaiseAction)
         new_pips = list(self.pips)
         new_stacks = list(self.stacks)
         contribution = action.amount - new_pips[active]
         new_stacks[active] -= contribution
         new_pips[active] += contribution
-        return RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self)
+        return RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self, self.swapped)
 
 
 class Player():
@@ -332,6 +334,12 @@ class Game():
     def __init__(self):
         self.log = ['6.176 MIT Pokerbots - ' + PLAYER_1_NAME + ' vs ' + PLAYER_2_NAME]
         self.player_messages = [[], []]
+        self.preflop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.flop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.turn_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_preflop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_flop_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
+        self.ev_turn_bets = {PLAYER_1_NAME: 0, PLAYER_2_NAME: 0}
 
     def log_round_state(self, players, round_state):
         '''
@@ -349,6 +357,15 @@ class Game():
             self.log.append(STREET_NAMES[round_state.street - 3] + ' ' + PCARDS(board) +
                             PVALUE(players[0].name, STARTING_STACK-round_state.stacks[0]) +
                             PVALUE(players[1].name, STARTING_STACK-round_state.stacks[1]))
+            if round_state.street == 3:
+                self.preflop_bets = {players[0].name: STARTING_STACK-round_state.stacks[0],
+                                     players[1].name: STARTING_STACK-round_state.stacks[1]}
+            elif round_state.street == 4:
+                self.flop_bets = {players[0].name: STARTING_STACK-round_state.stacks[0]-self.preflop_bets[players[0].name],
+                                  players[1].name: STARTING_STACK-round_state.stacks[1]-self.preflop_bets[players[1].name]}
+            else:
+                self.turn_bets = {players[0].name: STARTING_STACK-round_state.stacks[0]-self.flop_bets[players[0].name]-self.preflop_bets[players[0].name],
+                                  players[1].name: STARTING_STACK-round_state.stacks[1]-self.flop_bets[players[1].name]-self.preflop_bets[players[1].name]}
             compressed_board = 'B' + CCARDS(board)
             self.player_messages[0].append(compressed_board)
             self.player_messages[1].append(compressed_board)
@@ -388,8 +405,14 @@ class Game():
             self.log.append('{} shows {}'.format(players[1].name, PCARDS(previous_state.hands[1])))
             self.player_messages[0].append('O' + CCARDS(previous_state.hands[1]))
             self.player_messages[1].append('O' + CCARDS(previous_state.hands[0]))
-        self.log.append('{} awarded {}'.format(players[0].name, round_state.deltas[0]))
-        self.log.append('{} awarded {}'.format(players[1].name, round_state.deltas[1]))
+        if round_state.swapped[0]:
+            self.log.append('{} (swapped) awarded {}'.format(players[0].name, round_state.deltas[0]))
+        else:
+            self.log.append('{} awarded {}'.format(players[0].name, round_state.deltas[0]))
+        if round_state.swapped[1]:
+            self.log.append('{} (swapped) awarded {}'.format(players[1].name, round_state.deltas[1]))
+        else:
+            self.log.append('{} awarded {}'.format(players[1].name, round_state.deltas[1]))
         self.player_messages[0].append('D' + str(round_state.deltas[0]))
         self.player_messages[1].append('D' + str(round_state.deltas[1]))
 
@@ -404,6 +427,9 @@ class Game():
         pips = [SMALL_BLIND, BIG_BLIND]
         stacks = [STARTING_STACK - SMALL_BLIND, STARTING_STACK - BIG_BLIND]
         round_state = RoundState(0, 0, pips, stacks, hands, deck, None)
+        self.preflop_bets = {players[0].name: 0, players[1].name: 0}
+        self.flop_bets = {players[0].name: 0, players[1].name: 0}
+        self.turn_bets = {players[0].name: 0, players[1].name: 0}
         while not isinstance(round_state, TerminalState):
             self.log_round_state(players, round_state)
             active = round_state.button % 2
@@ -413,6 +439,11 @@ class Game():
             self.log_action(player.name, action, bet_override)
             round_state = round_state.proceed(action)
         self.log_terminal_state(players, round_state)
+        for i in range(len(players)):
+            multiplier = 1 if round_state.deltas[i] > 0 else (0 if round_state.deltas[i] == 0 else -1)
+            self.ev_preflop_bets[players[i].name] += multiplier * self.preflop_bets[players[i].name]
+            self.ev_flop_bets[players[i].name] += multiplier * self.flop_bets[players[i].name]
+            self.ev_turn_bets[players[i].name] += multiplier * self.turn_bets[players[i].name]
         for player, player_message, delta in zip(players, self.player_messages, round_state.deltas):
             player.query(round_state, player_message, self.log)
             player.bankroll += delta
@@ -442,6 +473,9 @@ class Game():
         self.log.append('')
         self.log.append('Final' + STATUS(players))
         for player in players:
+            self.log.append('{} preflop bets EV: {}'.format(player.name, self.ev_preflop_bets[player.name]))
+            self.log.append('{} flop bets EV: {}'.format(player.name, self.ev_flop_bets[player.name]))
+            self.log.append('{} turn bets EV: {}'.format(player.name, self.ev_turn_bets[player.name]))
             player.stop()
         name = GAME_LOG_FILENAME + '.txt'
         print('Writing', name)
