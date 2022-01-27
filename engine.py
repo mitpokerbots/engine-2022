@@ -22,7 +22,7 @@ CallAction = namedtuple('CallAction', [])
 CheckAction = namedtuple('CheckAction', [])
 # we coalesce BetAction and RaiseAction for convenience
 RaiseAction = namedtuple('RaiseAction', ['amount'])
-TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state'])
+TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state', 'swapped'], defaults=[[False, False]])
 
 STREET_NAMES = ['Flop', 'Turn', 'River']
 DECODE = {'F': FoldAction, 'C': CallAction, 'K': CheckAction, 'R': RaiseAction}
@@ -65,7 +65,7 @@ def swap(player_card_index, hands, deck):
     return hands, deck
 
 
-class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state'])):
+class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks', 'hands', 'deck', 'previous_state', 'swapped'], defaults=[(False, False)])):
     '''
     Encodes the game tree for one round of poker.
     '''
@@ -82,7 +82,7 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
             delta = self.stacks[0] - STARTING_STACK
         else:  # split the pot
             delta = (self.stacks[0] - self.stacks[1]) // 2
-        return TerminalState([delta, -delta], self)
+        return TerminalState([delta, -delta], self, self.swapped)
 
     def legal_actions(self):
         '''
@@ -119,12 +119,14 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         new_hands = self.hands.copy()
         new_deck = eval7.Deck()
         new_deck.cards = self.deck[1].cards.copy()
+        new_swapped = self.swapped.copy()
         if self.street == 0 or self.street == 3:
             for i in range(sum([len(hand) for hand in self.hands])):
                 if random.random() < (FLOP_PERCENT if self.street == 0 else TURN_PERCENT):
                     new_hands, new_deck = swap(i, new_hands, new_deck)
+                    new_swapped[i // len(new_hands)] = True
         board = self.deck[0] + new_deck.deal(3 if self.street == 0 else 1)
-        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self)
+        return RoundState(1, new_street, [0, 0], self.stacks, new_hands, (board, new_deck), self, new_swapped)
 
     def proceed(self, action):
         '''
@@ -133,30 +135,30 @@ class RoundState(namedtuple('_RoundState', ['button', 'street', 'pips', 'stacks'
         active = self.button % 2
         if isinstance(action, FoldAction):
             delta = self.stacks[0] - STARTING_STACK if active == 0 else STARTING_STACK - self.stacks[1]
-            return TerminalState([delta, -delta], self)
+            return TerminalState([delta, -delta], self, self.swapped)
         if isinstance(action, CallAction):
             if self.button == 0:  # sb calls bb
-                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self)
+                return RoundState(1, 0, [BIG_BLIND] * 2, [STARTING_STACK - BIG_BLIND] * 2, self.hands, self.deck, self, self.swapped)
             # both players acted
             new_pips = list(self.pips)
             new_stacks = list(self.stacks)
             contribution = new_pips[1-active] - new_pips[active]
             new_stacks[active] -= contribution
             new_pips[active] += contribution
-            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self)
+            state = RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self, self.swapped)
             return state.proceed_street()
         if isinstance(action, CheckAction):
             if (self.street == 0 and self.button > 0) or self.button > 1:  # both players acted
                 return self.proceed_street()
             # let opponent act
-            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self)
+            return RoundState(self.button + 1, self.street, self.pips, self.stacks, self.hands, self.deck, self, self.swapped)
         # isinstance(action, RaiseAction)
         new_pips = list(self.pips)
         new_stacks = list(self.stacks)
         contribution = action.amount - new_pips[active]
         new_stacks[active] -= contribution
         new_pips[active] += contribution
-        return RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self)
+        return RoundState(self.button + 1, self.street, new_pips, new_stacks, self.hands, self.deck, self, self.swapped)
 
 
 class Player():
@@ -388,8 +390,14 @@ class Game():
             self.log.append('{} shows {}'.format(players[1].name, PCARDS(previous_state.hands[1])))
             self.player_messages[0].append('O' + CCARDS(previous_state.hands[1]))
             self.player_messages[1].append('O' + CCARDS(previous_state.hands[0]))
-        self.log.append('{} awarded {}'.format(players[0].name, round_state.deltas[0]))
-        self.log.append('{} awarded {}'.format(players[1].name, round_state.deltas[1]))
+        if round_state.swapped[0]:
+            self.log.append('{} (swapped) awarded {}'.format(players[0].name, round_state.deltas[0]))
+        else:
+            self.log.append('{} awarded {}'.format(players[0].name, round_state.deltas[0]))
+        if round_state.swapped[1]:
+            self.log.append('{} (swapped) awarded {}'.format(players[1].name, round_state.deltas[1]))
+        else:
+            self.log.append('{} awarded {}'.format(players[1].name, round_state.deltas[1]))
         self.player_messages[0].append('D' + str(round_state.deltas[0]))
         self.player_messages[1].append('D' + str(round_state.deltas[1]))
 
