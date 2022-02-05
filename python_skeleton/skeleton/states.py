@@ -7,8 +7,6 @@ from .actions import FoldAction, CallAction, CheckAction, RaiseAction
 GameState = namedtuple('GameState', ['bankroll', 'game_clock', 'round_num'])
 TerminalState = namedtuple('TerminalState', ['deltas', 'previous_state'])
 
-FLOP_PERCENT = 0.1
-TURN_PERCENT = 0.05
 NUM_ROUNDS = 1000
 STARTING_STACK = 200
 BIG_BLIND = 2
